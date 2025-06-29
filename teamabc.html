@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team ABC - Manage Your Training</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'primary-dark': '#4B4BC8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .dark .glass-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .program-card {
+            transition: all 0.3s ease;
+        }
+        .program-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(93, 92, 222, 0.15);
+        }
+        .athlete-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .athlete-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        .text-gray-900 { color: #1f2937 !important; }
+        .text-gray-700 { color: #374151 !important; }
+        .text-gray-600 { color: #4b5563 !important; }
+        
+        /* Sync status indicator */
+        .sync-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .sync-connected { background: #10b981; color: white; }
+        .sync-syncing { background: #f59e0b; color: white; }
+        .sync-offline { background: #ef4444; color: white; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 transition-colors duration-300">
+    
+    <!-- Sync Status Indicator -->
+    <div id="syncIndicator" class="sync-indicator sync-offline">
+        🔄 Connecting...
+    </div>
+
+    <!-- Coach Password Modal -->
+    <div id="coachPasswordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Coach Access</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Enter the coach password to access the dashboard</p>
+            <form onsubmit="verifyCoachPassword(event)">
+                <input type="password" id="coachPassword" placeholder="Enter password" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4">
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-primary hover:bg-primary-dark text-white py-2 rounded-lg font-semibold">Access Dashboard</button>
+                    <button type="button" onclick="closeCoachPasswordModal()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-semibold">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Coach Selection View -->
+    <div id="coachSelectionView" class="min-h-screen flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-primary to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl">🧗</div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Team ABC</h1>
+                <p class="text-gray-600 dark:text-gray-300">Manage your training</p>
+            </div>
+            
+            <div class="space-y-4">
+                <button onclick="showCoachPassword()" class="w-full p-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold">
+                    <div class="text-xl mb-1">👨‍🏫</div>
+                    Coach Dashboard
+                </button>
+                <button onclick="selectAthlete()" class="w-full p-4 border-2 border-gray-300 dark:border-gray-600 hover:border-primary rounded-xl font-semibold text-white dark:text-white">
+                    <div class="text-xl mb-1">🧗‍♀️</div>
+                    Athlete Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Athlete Code Login Modal -->
+    <div id="athleteCodeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Athlete Login</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Enter your 4-digit login code</p>
+            <form onsubmit="verifyAthleteCode(event)">
+                <input type="text" id="athleteCode" placeholder="Enter your 4-digit code" maxlength="4" pattern="[0-9]{4}" class="w-full px-4 py-3 text-base text-center text-2xl font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4">
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-primary hover:bg-primary-dark text-white py-2 rounded-lg font-semibold">Login</button>
+                    <button type="button" onclick="closeAthleteCodeModal()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-semibold">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Athlete Code Display Modal -->
+    <div id="athleteCodeDisplayModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🎉 Athlete Added Successfully!</h3>
+            <div class="text-center mb-6">
+                <div class="mb-4">
+                    <div id="newAthleteName" class="text-lg font-semibold text-gray-900 dark:text-white mb-2"></div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">has been added to your team</div>
+                </div>
+                <div class="bg-primary/10 border-2 border-primary rounded-xl p-6 mb-4">
+                    <div class="text-sm font-medium text-gray-900 dark:text-white mb-2">Login Code:</div>
+                    <div id="athleteLoginCode" class="text-4xl font-mono font-bold text-primary"></div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-2">Give this code to your athlete</div>
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                    ⚠️ Please save this code! You can also find it on the athlete's card in your dashboard.
+                </div>
+            </div>
+            <button onclick="closeAthleteCodeDisplayModal()" class="w-full bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-semibold">
+                Got it! 👍
+            </button>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav id="mainNav" class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 hidden">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 mr-3 bg-gradient-to-r from-primary to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">🧗</div>
+                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">Team ABC</h1>
+                    <span id="currentUserDisplay" class="ml-4 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"></span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <!-- Coach Navigation -->
+                    <div id="coachNav" class="hidden space-x-2">
+                        <button id="athletesBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-primary bg-primary/10">Athletes</button>
+                        <button id="overviewBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">Overview</button>
+                        <button id="programsManageBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">Programs</button>
+                    </div>
+                    <!-- Athlete Navigation -->
+                    <div id="athleteNav" class="hidden space-x-2">
+                        <button id="homeBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-primary bg-primary/10">Home</button>
+                        <button id="programsBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">Programs</button>
+                        <button id="logBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">Log</button>
+                        <button id="historyBtn" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary">History</button>
+                    </div>
+                    <button onclick="logout()" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        
+        <!-- Coach: Athletes Management View -->
+        <div id="athletesView" class="view">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">My Athletes</h2>
+                    <p class="text-gray-600 dark:text-gray-300">Manage your athletes and their programs</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="exportAllData()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold">
+                        📊 Export CSV
+                    </button>
+                    <button onclick="showAddAthleteForm()" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-semibold">
+                        + Add Athlete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add Athlete Form -->
+            <div id="addAthleteForm" class="glass-card rounded-xl p-6 mb-6 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add New Athlete</h3>
+                <form onsubmit="addAthlete(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name</label>
+                        <input type="text" id="athleteName" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Age</label>
+                        <input type="number" id="athleteAge" min="1" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Experience Level</label>
+                        <select id="athleteLevel" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            <option value="beginner">Beginner (VB-V1)</option>
+                            <option value="intermediate">Intermediate (V2-V4)</option>
+                            <option value="advanced">Advanced (V5+)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Goals</label>
+                        <select id="athleteGoals" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            <option value="technique">Technique Focus</option>
+                            <option value="strength">Strength Building</option>
+                            <option value="competition">Competition Prep</option>
+                            <option value="general">General Improvement</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2 flex space-x-3">
+                        <button type="submit" class="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold">Add Athlete</button>
+                        <button type="button" onclick="hideAddAthleteForm()" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-2 rounded-lg font-semibold">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Athletes Grid -->
+            <div id="athletesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Athletes will be populated here -->
+            </div>
+
+            <!-- Edit Athlete Modal -->
+            <div id="editAthleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+                <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit Athlete</h3>
+                    <form onsubmit="updateAthlete(event)" class="space-y-4">
+                        <input type="hidden" id="editingAthleteId" value="">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name</label>
+                            <input type="text" id="editAthleteName" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Age</label>
+                            <input type="number" id="editAthleteAge" min="1" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Experience Level</label>
+                            <select id="editAthleteLevel" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                <option value="beginner">Beginner (VB-V1)</option>
+                                <option value="intermediate">Intermediate (V2-V4)</option>
+                                <option value="advanced">Advanced (V5+)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Goals</label>
+                            <select id="editAthleteGoals" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                <option value="technique">Technique Focus</option>
+                                <option value="strength">Strength Building</option>
+                                <option value="competition">Competition Prep</option>
+                                <option value="general">General Improvement</option>
+                            </select>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="submit" class="flex-1 bg-primary hover:bg-primary-dark text-white py-2 rounded-lg font-semibold">Update Athlete</button>
+                            <button type="button" onclick="closeEditAthleteModal()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-semibold">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Delete Athlete Confirmation Modal -->
+            <div id="deleteAthleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+                <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Delete Athlete</h3>
+                    <p class="text-gray-600 dark:text-gray-300 mb-6">Are you sure you want to delete this athlete? This will also remove all their session data and program assignments. This action cannot be undone.</p>
+                    <div class="flex space-x-3">
+                        <button onclick="confirmDeleteAthlete()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold">Delete</button>
+                        <button onclick="closeDeleteAthleteModal()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-semibold">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coach: Overview View -->
+        <div id="overviewView" class="view hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Training Overview</h2>
+                <p class="text-gray-600 dark:text-gray-300">Monitor all athletes' progress</p>
+            </div>
+            
+            <!-- Overview Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-primary mb-1" id="totalAthletes">0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">Athletes</div>
+                </div>
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-green-500 mb-1" id="activeSessions">0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">This Week</div>
+                </div>
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-orange-500 mb-1" id="avgProgress">85%</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">Avg Progress</div>
+                </div>
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-purple-500 mb-1" id="upcomingSessions">0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">Due Today</div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h3>
+                <div id="recentActivity" class="space-y-3">
+                    <!-- Activity will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Coach: Programs Management View -->
+        <div id="programsManageView" class="view hidden">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Manage Programs</h2>
+                    <p class="text-gray-600 dark:text-gray-300">Create and assign training programs</p>
+                </div>
+                <button onclick="showCreateProgramForm()" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-semibold">
+                    + Create Program
+                </button>
+            </div>
+
+            <!-- Create/Edit Program Form -->
+            <div id="createProgramForm" class="glass-card rounded-xl p-6 mb-6 hidden">
+                <h3 id="programFormTitle" class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create New Program</h3>
+                <form onsubmit="handleProgramForm(event)" class="space-y-4">
+                    <input type="hidden" id="editingProgramId" value="">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Program Name</label>
+                            <input type="text" id="programName" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Program Type</label>
+                            <select id="programType" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                <option value="climbing">Climbing Program</option>
+                                <option value="strength">S&C Program</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                        <textarea id="programDescription" rows="3" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                    </div>
+
+                    <!-- Program Sessions -->
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="font-medium text-gray-900 dark:text-white">Program Sessions</h4>
+                            <button type="button" onclick="addProgramSession()" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded text-sm">+ Add Session</button>
+                        </div>
+                        <div id="programSessionsList" class="space-y-3">
+                            <!-- Sessions will be added dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <button type="submit" id="programFormSubmitBtn" class="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold">Create Program</button>
+                        <button type="button" onclick="hideCreateProgramForm()" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-2 rounded-lg font-semibold">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Programs List -->
+            <div id="programsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Programs will be populated here -->
+            </div>
+
+            <!-- Assign Program Modal -->
+            <div id="assignProgramModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+                <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Assign Program</h3>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Athletes</label>
+                        <div id="athleteAssignList" class="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                            <!-- Athletes will be populated here -->
+                        </div>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="assignProgram()" class="flex-1 bg-primary hover:bg-primary-dark text-white py-2 rounded-lg font-semibold">Assign Program</button>
+                        <button onclick="closeAssignProgramModal()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-semibold">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Confirmation Modal -->
+            <div id="deleteProgramModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+                <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Delete Program</h3>
+                    <p class="text-gray-600 dark:text-gray-300 mb-6">Are you sure you want to delete this program? This action cannot be undone.</p>
+                    <div class="flex space-x-3">
+                        <button onclick="confirmDeleteProgram()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold">Delete</button>
+                        <button onclick="closeDeleteProgramModal()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-semibold">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Athlete Views -->
+        
+        <!-- Athlete: Home View -->
+        <div id="homeView" class="view hidden">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">Welcome back! 🤘</h2>
+                <p class="text-gray-600 dark:text-gray-300 text-lg">Ready to crush your training today?</p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-primary mb-1" id="totalSessions">0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">Sessions</div>
+                </div>
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-green-500 mb-1" id="currentStreak">0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">Day Streak</div>
+                </div>
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-orange-500 mb-1" id="thisWeek">0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">This Week</div>
+                </div>
+                <div class="glass-card rounded-xl p-6 text-center">
+                    <div class="text-2xl font-bold text-purple-500 mb-1" id="hardestGrade">V0</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">Best Send</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <button onclick="showPrograms('climbing')" class="program-card bg-gradient-to-r from-blue-500 to-cyan-600 text-white p-6 rounded-xl text-left">
+                    <div class="text-3xl mb-3">🧗‍♀️</div>
+                    <h3 class="text-lg font-semibold mb-1">Climbing Program</h3>
+                    <p class="text-sm opacity-90">View your climbing workouts</p>
+                </button>
+                
+                <button onclick="showPrograms('strength')" class="program-card bg-gradient-to-r from-orange-500 to-red-600 text-white p-6 rounded-xl text-left">
+                    <div class="text-3xl mb-3">💪</div>
+                    <h3 class="text-lg font-semibold mb-1">S&C Program</h3>
+                    <p class="text-sm opacity-90">View your strength training</p>
+                </button>
+                
+                <button onclick="quickLogSession()" class="program-card bg-gradient-to-r from-primary to-purple-600 text-white p-6 rounded-xl text-left">
+                    <div class="text-3xl mb-3">📝</div>
+                    <h3 class="text-lg font-semibold mb-1">Log Session</h3>
+                    <p class="text-sm opacity-90">Record your training session</p>
+                </button>
+                
+                <button onclick="viewProgress()" class="program-card bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-xl text-left">
+                    <div class="text-3xl mb-3">📈</div>
+                    <h3 class="text-lg font-semibold mb-1">View Progress</h3>
+                    <p class="text-sm opacity-90">Track your improvements</p>
+                </button>
+            </div>
+
+            <!-- Recent Sessions -->
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Recent Sessions</h3>
+                <div id="recentSessions" class="space-y-3">
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-2">🎯</div>
+                        <p>No sessions logged yet. Start training!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Athlete: Programs View -->
+        <div id="programsView" class="view hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Training Programs</h2>
+                <p class="text-gray-600 dark:text-gray-300">Follow your structured training plans</p>
+            </div>
+
+            <!-- Program Selector -->
+            <div class="flex space-x-4 mb-8">
+                <button id="climbingProgramBtn" class="program-type-btn flex-1 p-4 rounded-xl border-2 border-primary bg-primary text-white">
+                    <div class="text-2xl mb-2">🧗‍♀️</div>
+                    <div class="font-semibold">Climbing Program</div>
+                </button>
+                <button id="strengthProgramBtn" class="program-type-btn flex-1 p-4 rounded-xl border-2 border-gray-300 dark:border-gray-600">
+                    <div class="text-2xl mb-2">💪</div>
+                    <div class="font-semibold">S&C Program</div>
+                </button>
+            </div>
+
+            <!-- Program Content -->
+            <div id="programContent">
+                <!-- Content will be populated based on athlete's program -->
+            </div>
+        </div>
+
+        <!-- Enhanced Log View -->
+        <div id="logView" class="view hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Log Training Session</h2>
+                <p class="text-gray-600 dark:text-gray-300">Log your programmed workout with detailed performance data</p>
+            </div>
+
+            <!-- Session Type -->
+            <div class="flex space-x-4 mb-6">
+                <button id="logClimbingBtn" class="log-type-btn flex-1 p-4 rounded-xl border-2 border-primary bg-primary text-white">
+                    <div class="text-2xl mb-2">🧗‍♀️</div>
+                    <div class="font-semibold">Climbing Session</div>
+                </button>
+                <button id="logStrengthBtn" class="log-type-btn flex-1 p-4 rounded-xl border-2 border-gray-300 dark:border-gray-600">
+                    <div class="text-2xl mb-2">💪</div>
+                    <div class="font-semibold">S&C Session</div>
+                </button>
+            </div>
+
+            <!-- Program Session Selection -->
+            <div id="programSessionSelector" class="glass-card rounded-xl p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Your Programmed Session</h3>
+                <div id="availableSessions" class="space-y-3">
+                    <!-- Available sessions will be populated here -->
+                </div>
+            </div>
+
+            <!-- Enhanced Log Form -->
+            <form id="enhancedLogForm" class="glass-card rounded-xl p-6 space-y-6 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date</label>
+                        <input type="date" id="logDate" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (minutes)</label>
+                        <input type="number" id="logDuration" placeholder="60" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                </div>
+
+                <!-- Selected Session Details -->
+                <div id="selectedSessionDetails">
+                    <!-- Session details will be populated here -->
+                </div>
+
+                <!-- Exercise Performance Tracking -->
+                <div id="exerciseTrackingSection" class="hidden">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Exercise Performance</h4>
+                    <div id="exercisesList" class="space-y-4">
+                        <!-- Exercise tracking will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Common Fields -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">How did it feel? (1-10: 1=Easy, 10=Maximal)</label>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="1">1 😴</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="2">2 😌</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="3">3 🙂</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="4">4 😊</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="5">5 😤</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="6">6 😅</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="7">7 😰</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="8">8 😵</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="9">9 🤯</button>
+                        <button type="button" class="effort-btn px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" data-effort="10">10 💀</button>
+                    </div>
+                    <input type="hidden" id="effortRating" value="5">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes</label>
+                    <textarea id="sessionNotes" rows="3" placeholder="How did it go? Any wins or things to work on..." class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="button" onclick="cancelWorkout()" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500">
+                        Cancel Workout
+                    </button>
+                    <button type="submit" class="flex-1 bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-lg">
+                        Save Session 🎉
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- History View -->
+        <div id="historyView" class="view hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Training History</h2>
+                <p class="text-gray-600 dark:text-gray-300">Track your progress over time</p>
+            </div>
+
+            <div id="historyContainer" class="space-y-4">
+                <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <div class="text-4xl mb-4">📊</div>
+                    <p>Start logging sessions to see your progress!</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9TLVoFbj4RfhA4WA3wJVaPL31EC-qr5Q",
+            authDomain: "team-abc-a1635.firebaseapp.com",
+            projectId: "team-abc-a1635",
+            storageBucket: "team-abc-a1635.firebasestorage.app",
+            messagingSenderId: "936642955701",
+            appId: "1:936642955701:web:b4923fe3c63b17af1331fc"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        window.db = db;
+        window.auth = auth;
+        window.firebaseUtils = {
+            collection,
+            addDoc,
+            updateDoc,
+            deleteDoc,
+            doc,
+            onSnapshot,
+            setDoc,
+            getDocs,
+            query,
+            orderBy,
+            signInWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            createUserWithEmailAndPassword
+        };
+
+        window.firebaseReady = true;
+        window.dispatchEvent(new Event('firebaseReady'));
+    </script>
+
+    <script>
+        // Dark mode setup
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Global data
+        let athletes = [];
+        let sessions = [];
+        let programs = [];
+        let currentUser = null;
+        let currentUserType = null;
+        let currentProgramType = 'climbing';
+        
+        // Security Configuration
+        const SECURITY_CONFIG = {
+            COACH_PASSWORD: 'TeamABC_Coach_2024!',
+            MAX_INPUT_LENGTH: 500,
+            ALLOWED_ATHLETE_LEVELS: ['beginner', 'intermediate', 'advanced'],
+            ALLOWED_GOALS: ['technique', 'strength', 'competition', 'general'],
+            ALLOWED_PROGRAM_TYPES: ['climbing', 'strength']
+        };
+
+        // Firebase integration
+        let isOnline = navigator.onLine;
+        let syncStatus = 'disconnected';
+        let athletesListener = null;
+        let sessionsListener = null;
+        let programsListener = null;
+
+        // Program management variables
+        let editingProgramId = null;
+        let deletingProgramId = null;
+        let selectedProgramId = null;
+        let editingAthleteId = null;
+        let deletingAthleteId = null;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, checking Firebase...');
+            if (window.firebaseReady) {
+                console.log('Firebase ready, initializing...');
+                initializeFirebaseApp();
+            } else {
+                console.log('Waiting for Firebase...');
+                window.addEventListener('firebaseReady', initializeFirebaseApp);
+            }
+        });
+
+        function initializeFirebaseApp() {
+            console.log('Initializing Firebase app...');
+            loadLocalData();
+            setupEventListeners();
+            setupNetworkListeners();
+            setupAuthStateListener();
+            
+            if (isOnline) {
+                console.log('Setting up Firebase listeners...');
+                setupFirebaseListeners();
+            } else {
+                console.log('Offline, using local data only');
+                updateSyncStatus('offline');
+            }
+        }
+
+        // Firebase Authentication State Management
+        function setupAuthStateListener() {
+            if (!window.auth || !window.firebaseUtils) {
+                console.log('Firebase Auth not available yet');
+                return;
+            }
+
+            const { onAuthStateChanged } = window.firebaseUtils;
+            
+            onAuthStateChanged(window.auth, (user) => {
+                console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
+                if (user) {
+                    // User is signed in
+                    console.log('Authenticated user:', user.email, user.uid);
+                    // Handle authenticated user
+                } else {
+                    // User is signed out
+                    console.log('No authenticated user');
+                    // For now, continue with existing password system
+                }
+            });
+        }
+
+        // Network status monitoring
+        function setupNetworkListeners() {
+            window.addEventListener('online', () => {
+                console.log('Network online');
+                isOnline = true;
+                updateSyncStatus('syncing');
+                setupFirebaseListeners();
+            });
+
+            window.addEventListener('offline', () => {
+                console.log('Network offline');
+                isOnline = false;
+                updateSyncStatus('offline');
+                cleanupFirebaseListeners();
+            });
+        }
+
+        // Sync status indicator
+        function updateSyncStatus(status) {
+            console.log('Sync status:', status);
+            syncStatus = status;
+            const indicator = document.getElementById('syncIndicator');
+            
+            indicator.className = 'sync-indicator';
+            
+            switch (status) {
+                case 'synced':
+                    indicator.classList.add('sync-connected');
+                    indicator.textContent = '✅ Live Sync';
+                    setTimeout(() => {
+                        if (syncStatus === 'synced') {
+                            indicator.style.opacity = '0.7';
+                        }
+                    }, 2000);
+                    break;
+                case 'syncing':
+                    indicator.classList.add('sync-syncing');
+                    indicator.textContent = '🔄 Syncing...';
+                    indicator.style.opacity = '1';
+                    break;
+                case 'offline':
+                    indicator.classList.add('sync-offline');
+                    indicator.textContent = '📴 Offline Mode';
+                    indicator.style.opacity = '1';
+                    break;
+                default:
+                    indicator.classList.add('sync-offline');
+                    indicator.textContent = '🔄 Connecting...';
+                    indicator.style.opacity = '1';
+            }
+        }
+
+        // Firebase real-time listeners
+        function setupFirebaseListeners() {
+            if (!window.db || !window.firebaseUtils) {
+                console.error('Firebase not available');
+                updateSyncStatus('offline');
+                return;
+            }
+
+            const { collection, onSnapshot, query, orderBy } = window.firebaseUtils;
+
+            try {
+                console.log('Setting up athletes listener...');
+                athletesListener = onSnapshot(collection(window.db, 'athletes'), 
+                    (snapshot) => {
+                        console.log('Athletes updated:', snapshot.size, 'documents');
+                        const firebaseAthletes = [];
+                        snapshot.forEach((doc) => {
+                            firebaseAthletes.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        athletes = firebaseAthletes;
+                        saveLocalData();
+                        refreshCurrentView();
+                        updateSyncStatus('synced');
+                    },
+                    (error) => {
+                        console.error('Athletes listener error:', error);
+                        updateSyncStatus('offline');
+                    }
+                );
+
+                console.log('Setting up sessions listener...');
+                sessionsListener = onSnapshot(collection(window.db, 'sessions'), 
+                    (snapshot) => {
+                        console.log('Sessions updated:', snapshot.size, 'documents');
+                        const firebaseSessions = [];
+                        snapshot.forEach((doc) => {
+                            firebaseSessions.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        sessions = firebaseSessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                        saveLocalData();
+                        refreshCurrentView();
+                        updateSyncStatus('synced');
+                    },
+                    (error) => {
+                        console.error('Sessions listener error:', error);
+                        updateSyncStatus('offline');
+                    }
+                );
+
+                console.log('Setting up programs listener...');
+                programsListener = onSnapshot(collection(window.db, 'programs'), 
+                    (snapshot) => {
+                        console.log('Programs updated:', snapshot.size, 'documents');
+                        const firebasePrograms = [];
+                        snapshot.forEach((doc) => {
+                            firebasePrograms.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        programs = firebasePrograms;
+                        saveLocalData();
+                        refreshCurrentView();
+                        updateSyncStatus('synced');
+                    },
+                    (error) => {
+                        console.error('Programs listener error:', error);
+                        updateSyncStatus('offline');
+                    }
+                );
+
+                console.log('Firebase listeners set up successfully');
+                updateSyncStatus('synced');
+                
+            } catch (error) {
+                console.error('Error setting up Firebase listeners:', error);
+                updateSyncStatus('offline');
+            }
+        }
+
+        function cleanupFirebaseListeners() {
+            if (athletesListener) athletesListener();
+            if (sessionsListener) sessionsListener();
+            if (programsListener) programsListener();
+        }
+
+        // Firebase sync functions
+        async function saveToFirebase(collectionName, data, docId = null) {
+            if (!isOnline || !window.db || !window.firebaseUtils) {
+                console.log('Cannot save to Firebase - offline or not available');
+                return;
+            }
+
+            const { collection, addDoc, setDoc, doc } = window.firebaseUtils;
+            
+            try {
+                console.log('Saving to Firebase:', collectionName, docId);
+                updateSyncStatus('syncing');
+                
+                if (docId) {
+                    await setDoc(doc(window.db, collectionName, docId), data);
+                } else {
+                    const docRef = await addDoc(collection(window.db, collectionName), data);
+                    console.log('Document added with ID:', docRef.id);
+                    return docRef.id;
+                }
+                
+                updateSyncStatus('synced');
+                console.log('Saved to Firebase successfully');
+            } catch (error) {
+                console.error(`Error saving to Firebase (${collectionName}):`, error);
+                updateSyncStatus('offline');
+            }
+        }
+
+        async function deleteFromFirebase(collectionName, docId) {
+            if (!isOnline || !window.db || !window.firebaseUtils) {
+                console.log('Cannot delete from Firebase - offline or not available');
+                return;
+            }
+
+            const { deleteDoc, doc } = window.firebaseUtils;
+            
+            try {
+                console.log('Deleting from Firebase:', collectionName, docId);
+                updateSyncStatus('syncing');
+                await deleteDoc(doc(window.db, collectionName, docId));
+                updateSyncStatus('synced');
+                console.log('Deleted from Firebase successfully');
+            } catch (error) {
+                console.error(`Error deleting from Firebase (${collectionName}):`, error);
+                updateSyncStatus('offline');
+            }
+        }
+
+        // Data management
+        function loadLocalData() {
+            const savedAthletes = localStorage.getItem('climbtracker_athletes');
+            const savedSessions = localStorage.getItem('climbtracker_sessions');
+            const savedPrograms = localStorage.getItem('climbtracker_programs');
+            
+            if (savedAthletes) athletes = JSON.parse(savedAthletes);
+            if (savedSessions) sessions = JSON.parse(savedSessions);
+            if (savedPrograms) programs = JSON.parse(savedPrograms);
+            
+            console.log('Loaded local data:', { athletes: athletes.length, sessions: sessions.length, programs: programs.length });
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('climbtracker_athletes', JSON.stringify(athletes));
+            localStorage.setItem('climbtracker_sessions', JSON.stringify(sessions));
+            localStorage.setItem('climbtracker_programs', JSON.stringify(programs));
+        }
+
+        function refreshCurrentView() {
+            if (currentUserType === 'coach') {
+                updateAthletesView();
+                updateOverviewView();
+                updateProgramsManageView();
+            } else if (currentUserType === 'athlete') {
+                updateAthleteHomeView();
+                updateAthleteHistoryView();
+                updateAthleteProgramsView();
+            }
+        }
+
+        // Enhanced CRUD operations with Firebase sync
+        function addAthleteWithSync(athleteData) {
+            athletes.push(athleteData);
+            saveLocalData();
+            saveToFirebase('athletes', athleteData, athleteData.id);
+        }
+
+        function updateAthleteWithSync(athleteId, updatedData) {
+            const index = athletes.findIndex(a => a.id === athleteId);
+            if (index !== -1) {
+                athletes[index] = { ...athletes[index], ...updatedData };
+                saveLocalData();
+                saveToFirebase('athletes', athletes[index], athleteId);
+            }
+        }
+
+        function deleteAthleteWithSync(athleteId) {
+            athletes = athletes.filter(a => a.id !== athleteId);
+            sessions = sessions.filter(s => s.athleteId !== athleteId);
+            programs.forEach(program => {
+                if (program.assignedAthletes) {
+                    program.assignedAthletes = program.assignedAthletes.filter(id => id !== athleteId);
+                }
+            });
+            saveLocalData();
+            deleteFromFirebase('athletes', athleteId);
+        }
+
+        function addSessionWithSync(sessionData) {
+            sessions.unshift(sessionData);
+            saveLocalData();
+            saveToFirebase('sessions', sessionData, sessionData.id.toString());
+        }
+
+        function addProgramWithSync(programData) {
+            programs.push(programData);
+            saveLocalData();
+            saveToFirebase('programs', programData, programData.id);
+        }
+
+        function updateProgramWithSync(programId, updatedData) {
+            const index = programs.findIndex(p => p.id === programId);
+            if (index !== -1) {
+                programs[index] = { ...programs[index], ...updatedData };
+                saveLocalData();
+                saveToFirebase('programs', programs[index], programId);
+            }
+        }
+
+        function deleteProgramWithSync(programId) {
+            programs = programs.filter(p => p.id !== programId);
+            saveLocalData();
+            deleteFromFirebase('programs', programId);
+        }
+
+        // Authentication functions
+        function showCoachPassword() {
+            const modal = document.getElementById('coachPasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('coachPassword').focus();
+        }
+
+        function closeCoachPasswordModal() {
+            const modal = document.getElementById('coachPasswordModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('coachPassword').value = '';
+        }
+
+        // Security Validation Functions
+        function sanitizeInput(input) {
+            if (typeof input !== 'string') return '';
+            return input
+                .replace(/[<>]/g, '') // Remove potential HTML tags
+                .substring(0, SECURITY_CONFIG.MAX_INPUT_LENGTH)
+                .trim();
+        }
+
+        function validateAthleteData(athleteData) {
+            const errors = [];
+            
+            if (!athleteData.name || athleteData.name.length < 2) {
+                errors.push('Name must be at least 2 characters');
+            }
+            
+            if (!athleteData.age || athleteData.age < 5 || athleteData.age > 100) {
+                errors.push('Age must be between 5 and 100');
+            }
+            
+            if (!SECURITY_CONFIG.ALLOWED_ATHLETE_LEVELS.includes(athleteData.level)) {
+                errors.push('Invalid experience level');
+            }
+            
+            if (!SECURITY_CONFIG.ALLOWED_GOALS.includes(athleteData.goals)) {
+                errors.push('Invalid goal selection');
+            }
+            
+            return errors;
+        }
+
+        function validateProgramData(programData) {
+            const errors = [];
+            
+            if (!programData.name || programData.name.length < 3) {
+                errors.push('Program name must be at least 3 characters');
+            }
+            
+            if (!SECURITY_CONFIG.ALLOWED_PROGRAM_TYPES.includes(programData.type)) {
+                errors.push('Invalid program type');
+            }
+            
+            if (programData.sessions && programData.sessions.length === 0) {
+                errors.push('Program must have at least one session');
+            }
+            
+            return errors;
+        }
+
+        function verifyCoachPassword(e) {
+            e.preventDefault();
+            const password = document.getElementById('coachPassword').value;
+            
+            if (password === SECURITY_CONFIG.COACH_PASSWORD) {
+                closeCoachPasswordModal();
+                enterAsCoach();
+            } else {
+                alert('Incorrect password. Please try again.');
+                document.getElementById('coachPassword').value = '';
+                document.getElementById('coachPassword').focus();
+            }
+        }
+
+        function enterAsCoach() {
+            currentUser = 'Coach';
+            currentUserType = 'coach';
+            showMainInterface();
+            showCoachNavigation();
+            showAthletesView();
+        }
+
+        function selectAthlete() {
+            if (athletes.length === 0) {
+                alert('No athletes available. Please contact your coach.');
+                return;
+            }
+            
+            const modal = document.getElementById('athleteCodeModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('athleteCode').focus();
+        }
+
+        function verifyAthleteCode(e) {
+            e.preventDefault();
+            const code = document.getElementById('athleteCode').value.trim();
+            
+            if (code.length !== 4 || !/^\d{4}$/.test(code)) {
+                alert('Please enter a valid 4-digit code.');
+                return;
+            }
+            
+            const athlete = athletes.find(a => a.loginCode === code);
+            
+            if (athlete) {
+                currentUser = athlete;
+                currentUserType = 'athlete';
+                closeAthleteCodeModal();
+                showMainInterface();
+                showAthleteNavigation();
+                showAthleteHome();
+            } else {
+                alert('Invalid login code. Please check with your coach and try again.');
+                document.getElementById('athleteCode').value = '';
+                document.getElementById('athleteCode').focus();
+            }
+        }
+
+        function closeAthleteCodeModal() {
+            const modal = document.getElementById('athleteCodeModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('athleteCode').value = '';
+        }
+
+        function showAthleteCodeModal(athlete) {
+            document.getElementById('newAthleteName').textContent = athlete.name;
+            document.getElementById('athleteLoginCode').textContent = athlete.loginCode;
+            
+            const modal = document.getElementById('athleteCodeDisplayModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAthleteCodeDisplayModal() {
+            const modal = document.getElementById('athleteCodeDisplayModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function logout() {
+            currentUser = null;
+            currentUserType = null;
+            document.getElementById('coachSelectionView').classList.remove('hidden');
+            document.getElementById('mainNav').classList.add('hidden');
+            document.getElementById('mainContent').classList.add('hidden');
+        }
+
+        function showMainInterface() {
+            document.getElementById('coachSelectionView').classList.add('hidden');
+            document.getElementById('mainNav').classList.remove('hidden');
+            document.getElementById('mainContent').classList.remove('hidden');
+            
+            const userDisplay = document.getElementById('currentUserDisplay');
+            userDisplay.textContent = currentUserType === 'coach' ? 'Coach' : currentUser.name;
+        }
+
+        function showCoachNavigation() {
+            document.getElementById('coachNav').classList.remove('hidden');
+            document.getElementById('athleteNav').classList.add('hidden');
+        }
+
+        function showAthleteNavigation() {
+            document.getElementById('athleteNav').classList.remove('hidden');
+            document.getElementById('coachNav').classList.add('hidden');
+        }
+
+        // Navigation functions
+        function handleNavigation(e) {
+            const viewId = e.target.id.replace('Btn', 'View');
+            showView(viewId);
+            updateActiveNav(e.target);
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+            
+            if (viewId === 'athletesView') updateAthletesView();
+            else if (viewId === 'overviewView') updateOverviewView();
+            else if (viewId === 'programsManageView') updateProgramsManageView();
+            else if (viewId === 'homeView') updateAthleteHomeView();
+            else if (viewId === 'programsView') updateAthleteProgramsView();
+            else if (viewId === 'logView') setupLogForm();
+            else if (viewId === 'historyView') updateAthleteHistoryView();
+        }
+
+        function updateActiveNav(activeBtn) {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-primary', 'bg-primary/10');
+                btn.classList.add('text-gray-600', 'dark:text-gray-300');
+            });
+            activeBtn.classList.add('text-primary', 'bg-primary/10');
+            activeBtn.classList.remove('text-gray-600', 'dark:text-gray-300');
+        }
+
+        // Coach functions
+        function showAthletesView() {
+            showView('athletesView');
+            updateActiveNav(document.getElementById('athletesBtn'));
+        }
+
+        function updateOverviewView() {
+            document.getElementById('totalAthletes').textContent = athletes.length;
+            document.getElementById('activeSessions').textContent = getThisWeekTotalSessions();
+            document.getElementById('upcomingSessions').textContent = getTodaySessions();
+            
+            updateRecentActivity();
+        }
+
+        function updateRecentActivity() {
+            const container = document.getElementById('recentActivity');
+            const recentSessions = sessions.slice(0, 10);
+            
+            if (recentSessions.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-gray-500 dark:text-gray-400">No recent activity</div>';
+                return;
+            }
+            
+            container.innerHTML = recentSessions.map(session => {
+                const athlete = athletes.find(a => a.id === session.athleteId);
+                return `
+                    <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-xl">${session.type === 'climbing' ? '🧗‍♀️' : '💪'}</div>
+                            <div>
+                                <div class="font-medium text-gray-900 dark:text-white">${athlete?.name || 'Unknown'}</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">${session.type} • ${session.duration} min</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">${formatDate(session.date)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getThisWeekTotalSessions() {
+            const today = new Date();
+            const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+            return sessions.filter(s => new Date(s.date) >= weekStart).length;
+        }
+
+        function getTodaySessions() {
+            const today = new Date().toDateString();
+            return sessions.filter(s => new Date(s.date).toDateString() === today).length;
+        }
+
+        function updateAthletesView() {
+            const grid = document.getElementById('athletesGrid');
+            
+            if (athletes.length === 0) {
+                grid.innerHTML = `
+                    <div class="md:col-span-2 lg:col-span-3 text-center py-12 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-4">👥</div>
+                        <p>No athletes yet. Add your first athlete to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = athletes.map(athlete => createAthleteCard(athlete)).join('');
+        }
+
+        function createAthleteCard(athlete) {
+            const athleteSessions = sessions.filter(s => s.athleteId === athlete.id);
+            const recentSessions = athleteSessions.slice(0, 3);
+            const assignedPrograms = programs.filter(p => p.assignedAthletes && p.assignedAthletes.includes(athlete.id));
+            
+            return `
+                <div class="athlete-card glass-card rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${athlete.name}</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Age ${athlete.age} • ${athlete.level}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="text-2xl">🧗‍♀️</div>
+                            <div class="flex space-x-1">
+                                <button onclick="editAthlete('${athlete.id}')" class="p-2 text-gray-600 dark:text-gray-300 hover:text-primary" title="Edit Athlete">
+                                    ✏️
+                                </button>
+                                <button onclick="deleteAthlete('${athlete.id}')" class="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600" title="Delete Athlete">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                        <div>
+                            <div class="font-semibold text-primary">${athleteSessions.length}</div>
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Sessions</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-green-500">${getAthleteStreak(athlete.id)}</div>
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Streak</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-orange-500">${assignedPrograms.length}</div>
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Programs</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-3">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">Login Code:</div>
+                            <div class="text-lg font-mono font-bold text-primary">${athlete.loginCode}</div>
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Share this with your athlete</div>
+                    </div>
+                    
+                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                        <div class="font-medium mb-1">Recent Activity:</div>
+                        ${recentSessions.length > 0 ? 
+                            recentSessions.map(s => `<div class="truncate">• ${formatDate(s.date)} - ${s.type || 'Session'}</div>`).join('') :
+                            '<div class="italic">No recent sessions</div>'
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function showAddAthleteForm() {
+            document.getElementById('addAthleteForm').classList.remove('hidden');
+        }
+
+        function hideAddAthleteForm() {
+            document.getElementById('addAthleteForm').classList.add('hidden');
+            document.getElementById('addAthleteForm').querySelector('form').reset();
+        }
+
+        // Generate unique 4-digit code
+        function generateAthleteCode() {
+            let code;
+            do {
+                code = Math.floor(1000 + Math.random() * 9000).toString();
+            } while (athletes.some(athlete => athlete.loginCode === code));
+            return code;
+        }
+
+        function addAthlete(e) {
+            e.preventDefault();
+            
+            const rawAthlete = {
+                name: sanitizeInput(document.getElementById('athleteName').value),
+                age: parseInt(document.getElementById('athleteAge').value),
+                level: document.getElementById('athleteLevel').value,
+                goals: document.getElementById('athleteGoals').value
+            };
+            
+            // Validate input
+            const validationErrors = validateAthleteData(rawAthlete);
+            if (validationErrors.length > 0) {
+                alert('Validation Error:\n' + validationErrors.join('\n'));
+                return;
+            }
+            
+            const loginCode = generateAthleteCode();
+            const newAthlete = {
+                id: 'athlete_' + Date.now(),
+                ...rawAthlete,
+                loginCode: loginCode,
+                createdAt: new Date().toISOString()
+            };
+            
+            addAthleteWithSync(newAthlete);
+            hideAddAthleteForm();
+            showAthleteCodeModal(newAthlete);
+            updateAthletesView();
+        }
+
+        function editAthlete(athleteId) {
+            const athlete = athletes.find(a => a.id === athleteId);
+            if (!athlete) return;
+
+            editingAthleteId = athleteId;
+            document.getElementById('editingAthleteId').value = athleteId;
+            
+            document.getElementById('editAthleteName').value = athlete.name;
+            document.getElementById('editAthleteAge').value = athlete.age;
+            document.getElementById('editAthleteLevel').value = athlete.level;
+            document.getElementById('editAthleteGoals').value = athlete.goals;
+            
+            document.getElementById('editAthleteModal').classList.remove('hidden');
+            document.getElementById('editAthleteModal').classList.add('flex');
+        }
+
+        function closeEditAthleteModal() {
+            document.getElementById('editAthleteModal').classList.add('hidden');
+            document.getElementById('editAthleteModal').classList.remove('flex');
+            editingAthleteId = null;
+        }
+
+        function updateAthlete(e) {
+            e.preventDefault();
+            
+            if (!editingAthleteId) return;
+            
+            const updatedData = {
+                name: document.getElementById('editAthleteName').value,
+                age: parseInt(document.getElementById('editAthleteAge').value),
+                level: document.getElementById('editAthleteLevel').value,
+                goals: document.getElementById('editAthleteGoals').value,
+                updatedAt: new Date().toISOString()
+            };
+            
+            updateAthleteWithSync(editingAthleteId, updatedData);
+            closeEditAthleteModal();
+            updateAthletesView();
+        }
+
+        function deleteAthlete(athleteId) {
+            deletingAthleteId = athleteId;
+            document.getElementById('deleteAthleteModal').classList.remove('hidden');
+            document.getElementById('deleteAthleteModal').classList.add('flex');
+        }
+
+        function closeDeleteAthleteModal() {
+            document.getElementById('deleteAthleteModal').classList.add('hidden');
+            document.getElementById('deleteAthleteModal').classList.remove('flex');
+            deletingAthleteId = null;
+        }
+
+        function confirmDeleteAthlete() {
+            if (!deletingAthleteId) return;
+            deleteAthleteWithSync(deletingAthleteId);
+            closeDeleteAthleteModal();
+            updateAthletesView();
+            updateOverviewView();
+        }
+
+        // Program Management Functions
+        function updateProgramsManageView() {
+            updateProgramsList();
+        }
+
+        function showCreateProgramForm() {
+            editingProgramId = null;
+            document.getElementById('editingProgramId').value = '';
+            document.getElementById('programFormTitle').textContent = 'Create New Program';
+            document.getElementById('programFormSubmitBtn').textContent = 'Create Program';
+            document.getElementById('createProgramForm').classList.remove('hidden');
+            document.getElementById('programSessionsList').innerHTML = '';
+        }
+
+        function hideCreateProgramForm() {
+            document.getElementById('createProgramForm').classList.add('hidden');
+            document.getElementById('createProgramForm').querySelector('form').reset();
+            document.getElementById('programSessionsList').innerHTML = '';
+            editingProgramId = null;
+        }
+
+        function addProgramSession(existingSession = null) {
+            const sessionsList = document.getElementById('programSessionsList');
+            const sessionId = existingSession ? existingSession.id : 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const programType = document.getElementById('programType').value;
+            
+            const sessionDiv = document.createElement('div');
+            sessionDiv.className = 'border border-gray-200 dark:border-gray-600 rounded-lg p-4 space-y-3';
+            sessionDiv.setAttribute('data-session-id', sessionId);
+            
+            if (programType === 'climbing') {
+                sessionDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h5 class="font-medium text-gray-900 dark:text-white">Climbing Session</h5>
+                        <button type="button" onclick="this.closest('[data-session-id]').remove()" class="text-red-600 hover:text-red-800">Remove</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Session Name</label>
+                            <input type="text" class="session-name w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="e.g., Endurance Focus" value="${existingSession?.name || ''}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Target Grades</label>
+                            <input type="text" class="session-grades w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="e.g., V2-V4" value="${existingSession?.grades || ''}">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Session Description</label>
+                        <textarea class="session-description w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" rows="2" placeholder="Describe the workout goals and structure...">${existingSession?.description || ''}</textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Target Routes</label>
+                            <input type="number" class="session-routes w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="8" min="1" value="${existingSession?.targetRoutes || ''}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Focus Area</label>
+                            <select class="session-focus w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                <option value="technique" ${existingSession?.focus === 'technique' ? 'selected' : ''}>Technique</option>
+                                <option value="power" ${existingSession?.focus === 'power' ? 'selected' : ''}>Power</option>
+                                <option value="endurance" ${existingSession?.focus === 'endurance' ? 'selected' : ''}>Endurance</option>
+                                <option value="projects" ${existingSession?.focus === 'projects' ? 'selected' : ''}>Projects</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (min)</label>
+                            <input type="number" class="session-duration w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="90" min="30" value="${existingSession?.duration || ''}">
+                        </div>
+                    </div>
+                `;
+            } else {
+                sessionDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h5 class="font-medium text-gray-900 dark:text-white">S&C Session</h5>
+                        <button type="button" onclick="this.closest('[data-session-id]').remove()" class="text-red-600 hover:text-red-800">Remove</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Session Name</label>
+                            <input type="text" class="session-name w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="e.g., Upper Body Strength" value="${existingSession?.name || ''}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (min)</label>
+                            <input type="number" class="session-duration w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="60" min="30" value="${existingSession?.duration || ''}">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Exercises (one per line)</label>
+                        <textarea class="session-exercises w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" rows="4" placeholder="Pull-ups: 3x8-12&#10;Push-ups: 3x10-15&#10;Hangboard: 5x10s&#10;Core work: 3x30s">${existingSession?.exercises ? existingSession.exercises.join('\n') : ''}</textarea>
+                    </div>
+                `;
+            }
+            
+            sessionsList.appendChild(sessionDiv);
+        }
+
+        function handleProgramForm(e) {
+            e.preventDefault();
+            
+            if (editingProgramId) {
+                updateProgram();
+            } else {
+                createProgram();
+            }
+        }
+
+        function createProgram() {
+            const programType = document.getElementById('programType').value;
+            const sessionElements = document.querySelectorAll('#programSessionsList > div');
+            
+            const sessions = Array.from(sessionElements).map(sessionEl => {
+                const sessionId = sessionEl.getAttribute('data-session-id');
+                const baseData = {
+                    id: sessionId,
+                    name: sanitizeInput(sessionEl.querySelector('.session-name').value),
+                    duration: parseInt(sessionEl.querySelector('.session-duration').value) || 60,
+                    completed: false
+                };
+                
+                if (programType === 'climbing') {
+                    return {
+                        ...baseData,
+                        type: 'climbing',
+                        grades: sanitizeInput(sessionEl.querySelector('.session-grades').value),
+                        description: sanitizeInput(sessionEl.querySelector('.session-description').value),
+                        targetRoutes: parseInt(sessionEl.querySelector('.session-routes').value) || 8,
+                        focus: sessionEl.querySelector('.session-focus').value
+                    };
+                } else {
+                    return {
+                        ...baseData,
+                        type: 'strength',
+                        exercises: sessionEl.querySelector('.session-exercises').value.split('\n')
+                            .map(e => sanitizeInput(e))
+                            .filter(e => e.trim())
+                    };
+                }
+            });
+            
+            const rawProgram = {
+                name: sanitizeInput(document.getElementById('programName').value),
+                type: programType,
+                description: sanitizeInput(document.getElementById('programDescription').value),
+                sessions: sessions
+            };
+            
+            // Validate input
+            const validationErrors = validateProgramData(rawProgram);
+            if (validationErrors.length > 0) {
+                alert('Validation Error:\n' + validationErrors.join('\n'));
+                return;
+            }
+            
+            const newProgram = {
+                id: 'program_' + Date.now(),
+                ...rawProgram,
+                assignedAthletes: [],
+                createdAt: new Date().toISOString()
+            };
+            
+            addProgramWithSync(newProgram);
+            hideCreateProgramForm();
+            updateProgramsList();
+        }
+
+        function updateProgram() {
+            const program = programs.find(p => p.id === editingProgramId);
+            if (!program) return;
+
+            const programType = document.getElementById('programType').value;
+            const sessionElements = document.querySelectorAll('#programSessionsList > div');
+            
+            const sessions = Array.from(sessionElements).map(sessionEl => {
+                const sessionId = sessionEl.getAttribute('data-session-id');
+                const baseData = {
+                    id: sessionId,
+                    name: sessionEl.querySelector('.session-name').value,
+                    duration: parseInt(sessionEl.querySelector('.session-duration').value) || 60,
+                    completed: false
+                };
+                
+                if (programType === 'climbing') {
+                    return {
+                        ...baseData,
+                        type: 'climbing',
+                        grades: sessionEl.querySelector('.session-grades').value,
+                        description: sessionEl.querySelector('.session-description').value,
+                        targetRoutes: parseInt(sessionEl.querySelector('.session-routes').value) || 8,
+                        focus: sessionEl.querySelector('.session-focus').value
+                    };
+                } else {
+                    return {
+                        ...baseData,
+                        type: 'strength',
+                        exercises: sessionEl.querySelector('.session-exercises').value.split('\n').filter(e => e.trim())
+                    };
+                }
+            });
+
+            const updatedData = {
+                name: document.getElementById('programName').value,
+                type: programType,
+                description: document.getElementById('programDescription').value,
+                sessions: sessions,
+                updatedAt: new Date().toISOString()
+            };
+
+            updateProgramWithSync(editingProgramId, updatedData);
+            hideCreateProgramForm();
+            updateProgramsList();
+        }
+
+        function editProgram(programId) {
+            const program = programs.find(p => p.id === programId);
+            if (!program) return;
+
+            editingProgramId = programId;
+            document.getElementById('editingProgramId').value = programId;
+            document.getElementById('programFormTitle').textContent = 'Edit Program';
+            document.getElementById('programFormSubmitBtn').textContent = 'Update Program';
+            
+            document.getElementById('programName').value = program.name;
+            document.getElementById('programType').value = program.type;
+            document.getElementById('programDescription').value = program.description || '';
+            
+            const sessionsList = document.getElementById('programSessionsList');
+            sessionsList.innerHTML = '';
+            
+            program.sessions.forEach(session => {
+                addProgramSession(session);
+            });
+            
+            document.getElementById('createProgramForm').classList.remove('hidden');
+        }
+
+        function deleteProgram(programId) {
+            deletingProgramId = programId;
+            document.getElementById('deleteProgramModal').classList.remove('hidden');
+            document.getElementById('deleteProgramModal').classList.add('flex');
+        }
+
+        function confirmDeleteProgram() {
+            if (!deletingProgramId) return;
+            deleteProgramWithSync(deletingProgramId);
+            closeDeleteProgramModal();
+            updateProgramsList();
+        }
+
+        function closeDeleteProgramModal() {
+            document.getElementById('deleteProgramModal').classList.add('hidden');
+            document.getElementById('deleteProgramModal').classList.remove('flex');
+            deletingProgramId = null;
+        }
+
+        function updateProgramsList() {
+            const container = document.getElementById('programsList');
+            
+            if (programs.length === 0) {
+                container.innerHTML = `
+                    <div class="md:col-span-2 lg:col-span-3 text-center py-12 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-4">📋</div>
+                        <p>No programs created yet. Create your first program!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = programs.map(program => createProgramCard(program)).join('');
+        }
+
+        function createProgramCard(program) {
+            const assignedCount = program.assignedAthletes ? program.assignedAthletes.length : 0;
+            const emoji = program.type === 'climbing' ? '🧗‍♀️' : '💪';
+            
+            return `
+                <div class="glass-card rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">${emoji}</div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${program.name}</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-300">${program.type} • ${program.sessions.length} sessions</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="editProgram('${program.id}')" class="p-2 text-gray-600 dark:text-gray-300 hover:text-primary" title="Edit Program">
+                                ✏️
+                            </button>
+                            <button onclick="deleteProgram('${program.id}')" class="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600" title="Delete Program">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">${program.description || 'No description'}</p>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">
+                            ${assignedCount} athlete${assignedCount !== 1 ? 's' : ''} assigned
+                        </div>
+                        <button onclick="showAssignProgramModal('${program.id}')" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded text-sm">
+                            Assign
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showAssignProgramModal(programId) {
+            selectedProgramId = programId;
+            const modal = document.getElementById('assignProgramModal');
+            const athleteList = document.getElementById('athleteAssignList');
+            const program = programs.find(p => p.id === programId);
+            
+            athleteList.innerHTML = athletes.map(athlete => {
+                const isAssigned = program.assignedAthletes && program.assignedAthletes.includes(athlete.id);
+                return `
+                    <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
+                        <input type="checkbox" class="athlete-checkbox" data-athlete-id="${athlete.id}" ${isAssigned ? 'checked' : ''}>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">${athlete.name}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-300">${athlete.level} • Age ${athlete.age}</div>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAssignProgramModal() {
+            const modal = document.getElementById('assignProgramModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            selectedProgramId = null;
+        }
+
+        function assignProgram() {
+            if (!selectedProgramId) return;
+            
+            const checkedAthletes = Array.from(document.querySelectorAll('.athlete-checkbox:checked'))
+                .map(cb => cb.getAttribute('data-athlete-id'));
+            
+            updateProgramWithSync(selectedProgramId, { assignedAthletes: checkedAthletes });
+            closeAssignProgramModal();
+            updateProgramsList();
+        }
+
+        // Athlete functions
+        function showAthleteHome() {
+            showView('homeView');
+            updateActiveNav(document.getElementById('homeBtn'));
+        }
+
+        function updateAthleteHomeView() {
+            if (!currentUser || currentUserType !== 'athlete') return;
+            
+            const athleteSessions = sessions.filter(s => s.athleteId === currentUser.id);
+            
+            document.getElementById('totalSessions').textContent = athleteSessions.length;
+            document.getElementById('currentStreak').textContent = getAthleteStreak(currentUser.id);
+            document.getElementById('thisWeek').textContent = getThisWeekCount(currentUser.id);
+            document.getElementById('hardestGrade').textContent = 'V0';
+            
+            updateAthleteRecentSessions();
+        }
+
+        function updateAthleteRecentSessions() {
+            const container = document.getElementById('recentSessions');
+            const athleteSessions = sessions.filter(s => s.athleteId === currentUser.id).slice(0, 5);
+            
+            if (athleteSessions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-2">🎯</div>
+                        <p>No sessions logged yet. Start training!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = athleteSessions.map(session => createAthleteSessionCard(session)).join('');
+        }
+
+        function createAthleteSessionCard(session) {
+            const emoji = session.type === 'climbing' ? '🧗‍♀️' : '💪';
+            const effortEmojis = ['', '😴', '😌', '🙂', '😊', '😤', '😅', '😰', '😵', '🤯', '💀'];
+            
+            return `
+                <div class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl">${emoji}</div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">
+                                ${session.sessionName || (session.type === 'climbing' ? 'Climbing' : 'S&C')} Session
+                            </div>
+                            <div class="text-sm text-gray-600 dark:text-gray-300">
+                                ${formatDate(session.date)} • ${session.duration} min
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg">${effortEmojis[session.effort] || '😊'}</div>
+                        ${session.completed ? '<div class="text-xs text-green-600 dark:text-green-400">Completed!</div>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateAthleteHistoryView() {
+            if (!currentUser || currentUserType !== 'athlete') return;
+            
+            const container = document.getElementById('historyContainer');
+            const athleteSessions = sessions.filter(s => s.athleteId === currentUser.id);
+            
+            if (athleteSessions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-4">📊</div>
+                        <p>Start logging sessions to see your progress!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = athleteSessions.map(session => createDetailedSessionCard(session)).join('');
+        }
+
+        function createDetailedSessionCard(session) {
+            const emoji = session.type === 'climbing' ? '🧗‍♀️' : '💪';
+            const effortEmojis = ['', '😴', '😌', '🙂', '😊', '😤', '😅', '😰', '😵', '🤯', '💀'];
+            
+            return `
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-3xl">${emoji}</div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white text-lg">
+                                    ${session.sessionName || (session.type === 'climbing' ? 'Climbing' : 'S&C')} Session
+                                </h3>
+                                <p class="text-gray-600 dark:text-gray-300">${formatDate(session.date)} • ${session.duration} minutes</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl">${effortEmojis[session.effort] || '😊'}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Effort</div>
+                        </div>
+                    </div>
+                    ${session.notes ? `<p class="text-sm text-gray-600 dark:text-gray-300 mt-3 italic">"${session.notes}"</p>` : ''}
+                </div>
+            `;
+        }
+
+        // Athlete Programs View
+        function updateAthleteProgramsView() {
+            if (!currentUser || currentUserType !== 'athlete') return;
+            
+            const container = document.getElementById('programContent');
+            if (!container) return;
+            
+            const athletePrograms = programs.filter(p => 
+                p.assignedAthletes && p.assignedAthletes.includes(currentUser.id) && p.type === currentProgramType
+            );
+            
+            if (athletePrograms.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-4">${currentProgramType === 'climbing' ? '🧗‍♀️' : '💪'}</div>
+                        <p>No ${currentProgramType} programs assigned yet. Contact your coach!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = athletePrograms.map(program => createAthleteProgramView(program)).join('');
+        }
+
+        function createAthleteProgramView(program) {
+            return `
+                <div class="glass-card rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">${program.name}</h3>
+                    <p class="text-gray-600 dark:text-gray-300 mb-4">${program.description}</p>
+                    
+                    <div class="space-y-3">
+                        ${program.sessions.map(session => createAthleteSessionView(session, program.id)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createAthleteSessionView(session, programId) {
+            const athleteSessions = sessions.filter(s => s.athleteId === currentUser.id && s.sessionId === session.id);
+            const completed = athleteSessions.length > 0;
+            const latestSession = completed ? athleteSessions[athleteSessions.length - 1] : null;
+            
+            return `
+                <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 ${completed ? 'bg-green-50 dark:bg-green-900/20' : ''}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900 dark:text-white">${session.name}</h4>
+                            <div class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                ${session.type === 'climbing' ? 
+                                    `${session.grades} • ${session.targetRoutes} routes • ${session.focus} focus` :
+                                    `${session.exercises ? session.exercises.length : 0} exercises`
+                                }
+                                • ${session.duration} min
+                            </div>
+                            ${session.description ? `<p class="text-sm text-gray-600 dark:text-gray-300 mt-2">${session.description}</p>` : ''}
+                            ${completed && latestSession ? 
+                                `<div class="text-sm text-green-600 dark:text-green-400 mt-2">✅ Completed ${formatDate(latestSession.date)}</div>` : ''
+                            }
+                        </div>
+                        <button onclick="logProgramSession('${session.id}', '${programId}')" 
+                                class="ml-4 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm">
+                            ${completed ? 'Log Again' : 'Log Session'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function logProgramSession(sessionId, programId) {
+            const program = programs.find(p => p.id === programId);
+            const session = program.sessions.find(s => s.id === sessionId);
+            
+            if (!session) return;
+            
+            const sessionData = {
+                id: Date.now(),
+                athleteId: currentUser.id,
+                sessionId: sessionId,
+                programId: programId,
+                sessionName: session.name,
+                type: session.type,
+                date: new Date().toISOString().split('T')[0],
+                duration: session.duration,
+                effort: 5,
+                notes: '',
+                completed: true,
+                createdAt: new Date().toISOString()
+            };
+            
+            addSessionWithSync(sessionData);
+            alert(`Session "${session.name}" logged successfully! 🎉`);
+            updateAthleteProgramsView();
+            updateAthleteHomeView();
+        }
+
+        function showPrograms(type) {
+            if (currentUserType !== 'athlete') return;
+            
+            currentProgramType = type;
+            showView('programsView');
+            updateActiveNav(document.getElementById('programsBtn'));
+            updateProgramTypeUI();
+            updateAthleteProgramsView();
+        }
+
+        function updateProgramTypeUI() {
+            const climbingBtn = document.getElementById('climbingProgramBtn');
+            const strengthBtn = document.getElementById('strengthProgramBtn');
+            
+            if (currentProgramType === 'climbing') {
+                climbingBtn?.classList.add('border-primary', 'bg-primary', 'text-white');
+                climbingBtn?.classList.remove('border-gray-300', 'dark:border-gray-600');
+                strengthBtn?.classList.remove('border-primary', 'bg-primary', 'text-white');
+                strengthBtn?.classList.add('border-gray-300', 'dark:border-gray-600');
+            } else {
+                strengthBtn?.classList.add('border-primary', 'bg-primary', 'text-white');
+                strengthBtn?.classList.remove('border-gray-300', 'dark:border-gray-600');
+                climbingBtn?.classList.remove('border-primary', 'bg-primary', 'text-white');
+                climbingBtn?.classList.add('border-gray-300', 'dark:border-gray-600');
+            }
+        }
+
+        // Enhanced Logging Functions
+        let currentLogType = 'climbing';
+        let selectedSessionId = null;
+
+        function quickLogSession() {
+            if (currentUserType !== 'athlete') return;
+            
+            currentLogType = 'climbing';
+            selectedSessionId = null;
+            selectedProgramId = null;
+            showView('logView');
+            updateActiveNav(document.getElementById('logBtn'));
+            updateLogTypeUI();
+            updateAthleteLogView();
+        }
+
+        function viewProgress() {
+            showView('historyView');
+            updateActiveNav(document.getElementById('historyBtn'));
+        }
+
+        function setupLogForm() {
+            setTodayDate();
+            setupEnhancedLogForm();
+            updateAthleteLogView();
+        }
+
+        function setupEnhancedLogForm() {
+            // Log type buttons
+            document.getElementById('logClimbingBtn')?.addEventListener('click', () => {
+                currentLogType = 'climbing';
+                updateLogTypeUI();
+                updateAthleteLogView();
+            });
+            
+            document.getElementById('logStrengthBtn')?.addEventListener('click', () => {
+                currentLogType = 'strength';
+                updateLogTypeUI();
+                updateAthleteLogView();
+            });
+
+            // Effort rating buttons
+            document.querySelectorAll('.effort-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.effort-btn').forEach(b => {
+                        b.classList.remove('bg-primary', 'text-white');
+                        b.classList.add('border-gray-300', 'dark:border-gray-600');
+                    });
+                    btn.classList.add('bg-primary', 'text-white');
+                    btn.classList.remove('border-gray-300', 'dark:border-gray-600');
+                    document.getElementById('effortRating').value = btn.dataset.effort;
+                });
+            });
+
+            // Form submission
+            document.getElementById('enhancedLogForm')?.addEventListener('submit', saveEnhancedSession);
+        }
+
+        function updateLogTypeUI() {
+            const climbingBtn = document.getElementById('logClimbingBtn');
+            const strengthBtn = document.getElementById('logStrengthBtn');
+            
+            if (currentLogType === 'climbing') {
+                climbingBtn?.classList.add('border-primary', 'bg-primary', 'text-white');
+                climbingBtn?.classList.remove('border-gray-300', 'dark:border-gray-600');
+                strengthBtn?.classList.remove('border-primary', 'bg-primary', 'text-white');
+                strengthBtn?.classList.add('border-gray-300', 'dark:border-gray-600');
+            } else {
+                strengthBtn?.classList.add('border-primary', 'bg-primary', 'text-white');
+                strengthBtn?.classList.remove('border-gray-300', 'dark:border-gray-600');
+                climbingBtn?.classList.remove('border-primary', 'bg-primary', 'text-white');
+                climbingBtn?.classList.add('border-gray-300', 'dark:border-gray-600');
+            }
+        }
+
+        function updateAthleteLogView() {
+            if (!currentUser || currentUserType !== 'athlete') return;
+            
+            const athletePrograms = programs.filter(p => 
+                p.assignedAthletes && p.assignedAthletes.includes(currentUser.id) && p.type === currentLogType
+            );
+            
+            const availableContainer = document.getElementById('availableSessions');
+            const formContainer = document.getElementById('enhancedLogForm');
+            
+            if (selectedSessionId) {
+                showSelectedSessionForm();
+                return;
+            }
+            
+            if (athletePrograms.length === 0) {
+                availableContainer.innerHTML = `
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-4">${currentLogType === 'climbing' ? '🧗‍♀️' : '💪'}</div>
+                        <p>No ${currentLogType} programs assigned. Contact your coach!</p>
+                    </div>
+                `;
+                formContainer.classList.add('hidden');
+                return;
+            }
+            
+            // Show available sessions
+            let sessionsHtml = '';
+            athletePrograms.forEach(program => {
+                sessionsHtml += `
+                    <div class="mb-4">
+                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">${program.name}</h4>
+                        <div class="space-y-2">
+                            ${program.sessions.filter(s => s.type === currentLogType).map(session => `
+                                <button onclick="selectSessionToLog('${session.id}', '${program.id}')" 
+                                        class="w-full p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <div class="font-medium text-gray-900 dark:text-white">${session.name}</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                                        ${session.type === 'climbing' ? 
+                                            `${session.grades} • ${session.targetRoutes} routes • ${session.duration} min` :
+                                            `${session.exercises ? session.exercises.length : 0} exercises • ${session.duration} min`
+                                        }
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            availableContainer.innerHTML = sessionsHtml;
+            formContainer.classList.add('hidden');
+        }
+
+        function selectSessionToLog(sessionId, programId) {
+            selectedSessionId = sessionId;
+            selectedProgramId = programId;
+            showSelectedSessionForm();
+        }
+
+        function showSelectedSessionForm() {
+            const program = programs.find(p => p.id === selectedProgramId);
+            const session = program.sessions.find(s => s.id === selectedSessionId);
+            
+            if (!session) return;
+            
+            document.getElementById('enhancedLogForm').classList.remove('hidden');
+            document.getElementById('programSessionSelector').classList.add('hidden');
+            
+            const detailsContainer = document.getElementById('selectedSessionDetails');
+            const trackingSection = document.getElementById('exerciseTrackingSection');
+            
+            if (session.type === 'climbing') {
+                detailsContainer.innerHTML = `
+                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">${session.name}</h4>
+                        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                            <div><strong>Target Grades:</strong> ${session.grades}</div>
+                            <div><strong>Target Routes:</strong> ${session.targetRoutes}</div>
+                            <div><strong>Focus:</strong> ${session.focus}</div>
+                            <div><strong>Duration:</strong> ${session.duration} minutes</div>
+                            ${session.description ? `<div><strong>Notes:</strong> ${session.description}</div>` : ''}
+                        </div>
+                        <div class="mt-3">
+                            <button onclick="backToSessionSelection()" class="text-primary hover:text-primary-dark text-sm">← Back to session selection</button>
+                        </div>
+                    </div>
+                `;
+                trackingSection.classList.add('hidden');
+            } else {
+                detailsContainer.innerHTML = `
+                    <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">${session.name}</h4>
+                        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                            <div><strong>Duration:</strong> ${session.duration} minutes</div>
+                            <div><strong>Exercises:</strong></div>
+                            <ul class="list-disc list-inside ml-2">
+                                ${session.exercises.map(exercise => `<li>${exercise}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="mt-3">
+                            <button onclick="backToSessionSelection()" class="text-primary hover:text-primary-dark text-sm">← Back to session selection</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Show exercise tracking for strength sessions
+                trackingSection.classList.remove('hidden');
+                const exercisesList = document.getElementById('exercisesList');
+                
+                exercisesList.innerHTML = session.exercises.map((exercise, index) => `
+                    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4" data-exercise-index="${index}">
+                        <h5 class="font-medium text-gray-900 dark:text-white mb-3">${exercise}</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sets</label>
+                                <input type="number" class="exercise-sets w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="3" min="1">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Reps</label>
+                                <input type="number" class="exercise-reps w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="8" min="1">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Weight</label>
+                                <input type="number" class="exercise-weight w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="0" min="0" step="0.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Unit</label>
+                                <select class="exercise-weight-unit w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="kg">kg</option>
+                                    <option value="lbs">lbs</option>
+                                    <option value="bodyweight">bodyweight</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function backToSessionSelection() {
+            selectedSessionId = null;
+            selectedProgramId = null;
+            document.getElementById('enhancedLogForm').classList.add('hidden');
+            document.getElementById('programSessionSelector').classList.remove('hidden');
+            updateAthleteLogView();
+        }
+
+        function cancelWorkout() {
+            if (confirm('Are you sure you want to cancel this workout? Your progress will not be saved.')) {
+                resetEnhancedForm();
+                backToSessionSelection();
+            }
+        }
+
+        function saveEnhancedSession(e) {
+            e.preventDefault();
+            
+            if (!currentUser || currentUserType !== 'athlete' || !selectedSessionId) {
+                alert('Please select a session to log.');
+                return;
+            }
+            
+            const program = programs.find(p => p.id === selectedProgramId);
+            const session = program.sessions.find(s => s.id === selectedSessionId);
+            
+            // Collect exercise data for strength sessions
+            let exerciseData = [];
+            if (session.type === 'strength') {
+                const exerciseElements = document.querySelectorAll('#exercisesList > div');
+                exerciseElements.forEach((exerciseEl, index) => {
+                    const sets = exerciseEl.querySelector('.exercise-sets').value;
+                    const reps = exerciseEl.querySelector('.exercise-reps').value;
+                    const weight = exerciseEl.querySelector('.exercise-weight').value;
+                    const weightUnit = exerciseEl.querySelector('.exercise-weight-unit').value;
+                    
+                    if (sets && reps) {
+                        exerciseData.push({
+                            exercise: session.exercises[index],
+                            sets: parseInt(sets),
+                            reps: parseInt(reps),
+                            weight: parseFloat(weight) || 0,
+                            weightUnit: weightUnit
+                        });
+                    }
+                });
+            }
+            
+            const sessionData = {
+                id: Date.now(),
+                athleteId: currentUser.id,
+                sessionId: selectedSessionId,
+                programId: selectedProgramId,
+                sessionName: session.name,
+                type: session.type,
+                date: document.getElementById('logDate').value,
+                duration: parseInt(document.getElementById('logDuration').value) || session.duration,
+                effort: parseInt(document.getElementById('effortRating').value),
+                notes: document.getElementById('sessionNotes').value,
+                exerciseData: exerciseData,
+                completed: true,
+                createdAt: new Date().toISOString()
+            };
+            
+            addSessionWithSync(sessionData);
+            
+            // Reset form
+            resetEnhancedForm();
+            
+            // Show success and redirect
+            alert(`Session logged! Great work completing "${session.name}"! 🎉`);
+            showAthleteHome();
+        }
+
+        function resetEnhancedForm() {
+            document.getElementById('enhancedLogForm').reset();
+            setTodayDate();
+            document.getElementById('effortRating').value = '5';
+            document.querySelectorAll('.effort-btn').forEach(btn => {
+                btn.classList.remove('bg-primary', 'text-white');
+                btn.classList.add('border-gray-300', 'dark:border-gray-600');
+            });
+            document.querySelector('[data-effort="5"]')?.classList.add('bg-primary', 'text-white');
+            selectedSessionId = null;
+            selectedProgramId = null;
+            document.getElementById('exerciseTrackingSection').classList.add('hidden');
+        }
+
+        function setTodayDate() {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const dateInput = document.getElementById('logDate');
+            if (dateInput) dateInput.value = dateStr;
+        }
+
+        // Event listeners setup
+        function setupEventListeners() {
+            // Navigation
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', handleNavigation);
+            });
+
+            // Program type buttons
+            document.getElementById('climbingProgramBtn')?.addEventListener('click', () => {
+                currentProgramType = 'climbing';
+                updateProgramTypeUI();
+                updateAthleteProgramsView();
+            });
+            
+            document.getElementById('strengthProgramBtn')?.addEventListener('click', () => {
+                currentProgramType = 'strength';
+                updateProgramTypeUI();
+                updateAthleteProgramsView();
+            });
+        }
+
+        // Helper functions
+        function getAthleteStreak(athleteId) {
+            const athleteSessions = sessions.filter(s => s.athleteId === athleteId);
+            if (athleteSessions.length === 0) return 0;
+            
+            const today = new Date();
+            const dates = athleteSessions.map(s => new Date(s.date)).sort((a, b) => b - a);
+            
+            let streak = 0;
+            let currentDate = new Date(today);
+            
+            for (let date of dates) {
+                const diffDays = Math.floor((currentDate - date) / (1000 * 60 * 60 * 24));
+                if (diffDays <= 1) {
+                    streak++;
+                    currentDate = date;
+                } else {
+                    break;
+                }
+            }
+            
+            return streak;
+        }
+
+        function getThisWeekCount(athleteId) {
+            const today = new Date();
+            const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+            return sessions.filter(s => s.athleteId === athleteId && new Date(s.date) >= weekStart).length;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (date.toDateString() === today.toDateString()) return 'Today';
+            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        // CSV Export (keeping for backup purposes)
+        function exportAllData() {
+            try {
+                const csvData = generateCSVData();
+                downloadCSV(csvData, 'ClimbTracker_Data_' + new Date().toISOString().split('T')[0] + '.csv');
+            } catch (error) {
+                console.error('Error exporting data:', error);
+                alert('Error exporting data. Please try again.');
+            }
+        }
+
+        function generateCSVData() {
+            let csvContent = 'ATHLETES\n';
+            csvContent += 'Name,Age,Level,Goals,Created Date,Total Sessions\n';
+            
+            athletes.forEach(athlete => {
+                const athleteSessions = sessions.filter(s => s.athleteId === athlete.id);
+                csvContent += `"${athlete.name}",${athlete.age},"${athlete.level}","${athlete.goals}","${formatDateForCSV(athlete.createdAt)}",${athleteSessions.length}\n`;
+            });
+            
+            csvContent += '\n\nSESSIONS\n';
+            csvContent += 'Date,Athlete,Type,Duration (min),Effort Rating,Notes\n';
+            
+            sessions.forEach(session => {
+                const athlete = athletes.find(a => a.id === session.athleteId);
+                const athleteName = athlete ? athlete.name : 'Unknown';
+                csvContent += `"${session.date}","${athleteName}","${session.type}",${session.duration || ''},${session.effort || ''},"${session.notes || ''}"\n`;
+            });
+            
+            return csvContent;
+        }
+
+        function formatDateForCSV(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toLocaleDateString();
+        }
+
+        function downloadCSV(csvContent, filename) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Initialize sync status
+        updateSyncStatus('connecting');
+    </script>
+</body>
+</html>
